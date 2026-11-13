@@ -150,6 +150,23 @@ static TEE_Result labeled_expand(const uint8_t *suite, size_t suite_len,
 	TEE_MemFill(t, 0, sizeof(t));
 	TEE_MemFill(&li, 0, sizeof(li));
 	TEE_MemFill(&ib, 0, sizeof(ib));
-	
+
 	return res;
+}
+
+static TEE_Result get_padded(TEE_ObjectHandle o,
+	                         uint32_t attr,
+			                 uint8_t *dst, size_t len)
+{
+	uint8_t tmp[P256];
+	uint32_t n = sizeof(tmp);
+	TEE_Result res = TEE_GetObjectBufferAttribute(o, attr, tmp, &n);
+
+	if (res)
+		return res;
+
+	memset(dst, 0, len - n);	/* big-endian, left-pad to fixed size */
+	memcpy(dst + len - n, tmp, n);
+
+	return TEE_SUCCESS;
 }
