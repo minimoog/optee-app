@@ -244,3 +244,37 @@ out:
 	TEE_FreeTransientObject(kp);
 	return res;
 }
+
+/* ---------- KeySchedule (base mode) ---------- */
+
+static TEE_Result key_schedule(const uint8_t ss[NH],
+			       const uint8_t *info, size_t info_len,
+			       uint8_t key[NK],
+			       uint8_t nonce[NN])
+{
+	uint8_t ctx[1 + 2 * NH];
+	uint8_t secret[NH];
+	TEE_Result res;
+
+	ctx[0] = 0x00;				/* mode_base */
+	res = labeled_extract(HPKE_SUITE, sizeof(HPKE_SUITE), NULL, 0, "psk_id_hash", NULL, 0, ctx + 1);
+	if (res)
+		return res;
+
+	res = labeled_extract(HPKE_SUITE, sizeof(HPKE_SUITE), NULL, 0, "info_hash", info, info_len, ctx + 1 + NH);
+	if (res)
+		return res;
+
+	/* secret = LabeledExtract(shared_secret, "secret", psk = "") */
+	res = labeled_extract(HPKE_SUITE, sizeof(HPKE_SUITE), ss, NH, "secret", NULL, 0, secret);
+	if (res)
+		return res;
+
+	res = labeled_expand(HPKE_SUITE, sizeof(HPKE_SUITE), secret, "key", ctx, sizeof(ctx), NK, key);
+	if (!res)
+		res = labeled_expand(HPKE_SUITE, sizeof(HPKE_SUITE), secret, "base_nonce", ctx, sizeof(ctx), NN, nonce);
+
+	TEE_MemFill(secret, 0, sizeof(secret));
+
+	return res;
+}
