@@ -170,3 +170,77 @@ static TEE_Result get_padded(TEE_ObjectHandle o,
 
 	return TEE_SUCCESS;
 }
+
+static TEE_Result dhkem_encap(const uint8_t pkR[HPKE_NPK],
+			                  uint8_t enc[HPKE_NENC],
+			                  uint8_t ss[NH])
+{
+	TEE_ObjectHandle kp = TEE_HANDLE_NULL;
+	TEE_ObjectHandle dh_obj = TEE_HANDLE_NULL;
+	TEE_OperationHandle op = TEE_HANDLE_NULL;
+	TEE_Attribute attrs[2];
+	uint8_t dh[P256];
+	uint8_t eae_prk[NH];
+	uint8_t kem_ctx[2 * HPKE_NPK];
+	TEE_Result res;
+
+	if (pkR[0] != 0x04)
+		return TEE_ERROR_BAD_PARAMETERS;
+
+	/* skE, pkE = GenerateKeyPair() */
+	res = TEE_AllocateTransientObject(TEE_TYPE_ECDH_KEYPAIR, 256, &kp);
+	if (res)
+		return res;
+
+	TEE_InitValueAttribute(&attrs[0], TEE_ATTR_ECC_CURVE, TEE_ECC_CURVE_NIST_P256, 0);
+	res = TEE_GenerateKey(kp, 256, attrs, 1);
+	if (res)
+		goto out;
+
+	/* enc = SerializePublicKey(pkE) = 0x04 || X || Y */
+	enc[0] = 0x04;
+	res = get_padded(kp, TEE_ATTR_ECC_PUBLIC_VALUE_X, enc + 1, P256);
+	if (res)
+		goto out;
+
+	res = get_padded(kp, TEE_ATTR_ECC_PUBLIC_VALUE_Y, enc + 1 + P256, P256);
+	if (res)
+		goto out;
+
+	/* dh = DH(skE, pkR): x-coordinate of the shared point */
+	res = TEE_AllocateOperation(&op, TEE_ALG_ECDH_P256, TEE_MODE_DERIVE, 256);
+	if (res)
+		goto out;
+
+	res = TEE_SetOperationKey(op, kp);
+	if (res)
+		goto out;
+
+	res = TEE_AllocateTransientObject(TEE_TYPE_GENERIC_SECRET, 256, &dh_obj);
+	if (res)
+		goto out;
+
+	TEE_InitRefAttribute(&attrs[0], TEE_ATTR_ECC_PUBLIC_VALUE_X, pkR + 1, P256);
+	TEE_InitRefAttribute(&attrs[1], TEE_ATTR_ECC_PUBLIC_VALUE_Y, pkR + 1 + P256, P256);
+	TEE_DeriveKey(op, attrs, 2, dh_obj);	/* panics the TA on a bad point */
+	res = get_padded(dh_obj, TEE_ATTR_SECRET_VALUE, dh, P256);
+	if (res)
+		goto out;
+
+	/* kem_context = enc || pkRm; ExtractAndExpand */
+	memcpy(kem_ctx,             enc, HPKE_NENC);
+	memcpy(kem_ctx + HPKE_NENC, pkR, HPKE_NPK);
+	res = labeled_extract(KEM_SUITE, sizeof(KEM_SUITE), NULL, 0, "eae_prk", dh, sizeof(dh), eae_prk);
+	if (res)
+		goto out;
+
+	res = labeled_expand(KEM_SUITE, sizeof(KEM_SUITE), eae_prk, "shared_secret", kem_ctx, sizeof(kem_ctx), NH, ss);
+
+out:
+	TEE_MemFill(dh, 0, sizeof(dh));
+	TEE_MemFill(eae_prk, 0, sizeof(eae_prk));
+	TEE_FreeOperation(op);
+	TEE_FreeTransientObject(dh_obj);
+	TEE_FreeTransientObject(kp);
+	return res;
+}
