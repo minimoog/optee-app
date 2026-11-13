@@ -278,3 +278,48 @@ static TEE_Result key_schedule(const uint8_t ss[NH],
 
 	return res;
 }
+
+/* ---------- AES-256-GCM seal, output = ct || tag ---------- */
+
+static TEE_Result aes256gcm_seal(const uint8_t key[NK], const uint8_t nonce[NN],
+				                 const uint8_t *aad, size_t aad_len,
+				                 const uint8_t *pt, size_t pt_len,
+				                 uint8_t *ct)
+{
+	TEE_ObjectHandle k = TEE_HANDLE_NULL;
+	TEE_OperationHandle op = TEE_HANDLE_NULL;
+	TEE_Attribute attr;
+	uint32_t ct_len = pt_len, tag_len = HPKE_NT;
+	TEE_Result res;
+
+	res = TEE_AllocateTransientObject(TEE_TYPE_AES, 256, &k);
+	if (res)
+		return res;
+
+	TEE_InitRefAttribute(&attr, TEE_ATTR_SECRET_VALUE, key, NK);
+	res = TEE_PopulateTransientObject(k, &attr, 1);
+	if (res)
+		goto out;
+
+	res = TEE_AllocateOperation(&op, TEE_ALG_AES_GCM, TEE_MODE_ENCRYPT, 256);
+	if (res)
+		goto out;
+
+	res = TEE_SetOperationKey(op, k);
+	if (res)
+		goto out;
+
+	res = TEE_AEInit(op, nonce, NN, HPKE_NT * 8, 0, 0);
+	if (res)
+		goto out;
+
+	if (aad_len)
+		TEE_AEUpdateAAD(op, aad, aad_len);
+
+	res = TEE_AEEncryptFinal(op, pt, pt_len, ct, &ct_len, ct + pt_len, &tag_len);
+
+out:
+	TEE_FreeOperation(op);
+	TEE_FreeTransientObject(k);
+	return res;
+}
