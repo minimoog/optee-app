@@ -115,10 +115,10 @@ TEE_Result TA_InvokeCommandEntryPoint(void __unused *sess_ctx,
 				      TEE_Param params[4])
 {
 	switch (cmd_id) {
-	case TA_MY_CMD_INC_VALUE:
-		return inc_value(param_types, params);
-	case TA_MY_CMD_DEC_VALUE:
-		return dec_value(param_types, params);
+	//case TA_MY_CMD_INC_VALUE:
+		//return inc_value(param_types, params);
+	//case TA_MY_CMD_DEC_VALUE:
+		//return dec_value(param_types, params);
 	default:
 		return TEE_ERROR_BAD_PARAMETERS;
 	}
