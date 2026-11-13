@@ -14,7 +14,7 @@
 		{ 0x9f, 0xbf, 0x14, 0x69, 0x41, 0x64, 0x61, 0x0e} }
 
 /* The function IDs implemented in this TA */
-#define TA_MY_CMD_INC_VALUE 		0
-//#define TA_HELLO_WORLD_CMD_DEC_VALUE		1
+#define TA_MY_CMD_INC_VALUE 				0
+#define TA_MY_CMD_DEC_VALUE					1
 
 #endif /*MY_TA_H*/

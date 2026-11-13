@@ -7,7 +7,7 @@
 #include <tee_internal_api.h>
 #include <tee_internal_api_extensions.h>
 
-#include <hello_world_ta.h>
+#include <my_ta.h>
 
 /*
  * Called when the instance of the TA is created. This is the first call in
@@ -115,9 +115,9 @@ TEE_Result TA_InvokeCommandEntryPoint(void __unused *sess_ctx,
 				      TEE_Param params[4])
 {
 	switch (cmd_id) {
-	case TA_HELLO_WORLD_CMD_INC_VALUE:
+	case TA_MY_CMD_INC_VALUE:
 		return inc_value(param_types, params);
-	case TA_HELLO_WORLD_CMD_DEC_VALUE:
+	case TA_MY_CMD_DEC_VALUE:
 		return dec_value(param_types, params);
 	default:
 		return TEE_ERROR_BAD_PARAMETERS;

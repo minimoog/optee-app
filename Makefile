@@ -1,15 +1,25 @@
-export V?=0
+ROOT            ?= $(HOME)/Developer/optee-qemu
+CROSS_COMPILE   ?= $(ROOT)/toolchains/aarch64/bin/aarch64-linux-gnu-
+TA_DEV_KIT_DIR  ?= $(ROOT)/optee_os/out/arm/export-ta_arm64
+TEEC_EXPORT     ?= $(ROOT)/optee_client/out/export/usr
+SHARED          ?= $(HOME)/shared
 
-# If _HOST or _TA specific compilers are not specified, then use CROSS_COMPILE
-HOST_CROSS_COMPILE ?= $(CROSS_COMPILE)
-TA_CROSS_COMPILE ?= $(CROSS_COMPILE)
+export CROSS_COMPILE TA_DEV_KIT_DIR TEEC_EXPORT
 
-.PHONY: all
-all:
-	$(MAKE) -C host CROSS_COMPILE="$(HOST_CROSS_COMPILE)" --no-builtin-variables
-	$(MAKE) -C ta CROSS_COMPILE="$(TA_CROSS_COMPILE)" LDFLAGS=""
+.PHONY: all ta host clean install
 
-.PHONY: clean
+all: ta host
+
+ta:
+	$(MAKE) -C ta CROSS_COMPILE=$(CROSS_COMPILE) TA_DEV_KIT_DIR=$(TA_DEV_KIT_DIR)
+
+host:
+	$(MAKE) -C host CROSS_COMPILE=$(CROSS_COMPILE) ROOT=$(ROOT)
+
 clean:
-	$(MAKE) -C host clean
 	$(MAKE) -C ta clean
+	$(MAKE) -C host clean
+
+install: all
+	mkdir -p $(SHARED)
+	cp ta/*.ta host/my_app $(SHARED)/
