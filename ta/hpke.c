@@ -323,3 +323,32 @@ out:
 	TEE_FreeTransientObject(k);
 	return res;
 }
+
+/* ---------- Public entry: SetupBaseS + Seal (seq = 0) ---------- */
+
+TEE_Result hpke_seal_base(const uint8_t pkR[HPKE_NPK],
+			  const uint8_t *info, size_t info_len,
+			  const uint8_t *aad, size_t aad_len,
+			  const uint8_t *pt, size_t pt_len,
+			  uint8_t enc[HPKE_NENC], uint8_t *ct)
+{
+	uint8_t ss[NH], key[NK], nonce[NN];
+	TEE_Result res;
+
+	res = dhkem_encap(pkR, enc, ss);
+	if (res)
+		goto out;
+
+	res = key_schedule(ss, info, info_len, key, nonce);
+	if (res)
+		goto out;
+
+	/* seq = 0, so nonce = base_nonce XOR 0 */
+	res = aes256gcm_seal(key, nonce, aad, aad_len, pt, pt_len, ct);
+
+out:
+	TEE_MemFill(ss, 0, sizeof(ss));
+	TEE_MemFill(key, 0, sizeof(key));
+	TEE_MemFill(nonce, 0, sizeof(nonce));
+	return res;
+}
